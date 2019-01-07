@@ -191,7 +191,7 @@ h5 {
 }
 
 .react-monaco-editor-container {
-	width: 100%;
+	width: 96%;
 	height: 600px;
 	position: relative;
 }
@@ -215,4 +215,16 @@ h5 {
 
 	.display-none {
 		display: none;
+	}
+	.check-img {
+		width: 90%;
+    position: absolute;
+    z-index: 999999;
+    display: flex;
+    justify-content: flex-end;
+	}
+
+	.check-img img {
+		height: 40px;
+		width: 40px;
 	}

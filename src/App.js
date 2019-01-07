@@ -1,10 +1,11 @@
 import React, { Component } from 'react';
-import * as monaco from 'monaco-editor/esm/vs/editor/editor.main';
+import * as monaco from 'monaco-editor';
 import beautify from 'js-beautify';
 import jsonlint from 'jsonlint';
 import jsonminify from 'jsonminify';
 import upload from './upload-button.svg';
 import loader from './loader.gif';
+import checked from './checked.svg';
 import './App.css';
 
 class App extends Component {
@@ -14,7 +15,8 @@ class App extends Component {
     this.state = {
        error: [],
        loading: false,
-       isError: false
+       isError: false,
+       isValid: false
     };
   }
   componentDidMount() {
@@ -28,7 +30,7 @@ class App extends Component {
           colorDecorators: true,
           glyphMargin: true,
           wordWrap: 'wordWrapColumn',
-          wordWrapColumn: 80,
+          wordWrapColumn: 60,
           EditorAutoClosingStrategy: "always",
           scrollbar: { verticalScrollbarSize: 8,
             useShadows: false,
@@ -51,26 +53,26 @@ class App extends Component {
               'editor.inactiveSelectionBackground': '#88000015'
           }
       });
+      monaco.editor.setTheme('myTheme');
+      this.editor = monaco.editor.create(this.containerElement, {
+        language: 'json',
+        value: '{}',
+        // theme: 'myTheme',
+        ...options
+      });
 
-        this.editor = monaco.editor.create(this.containerElement, {
-          language: 'json',
-          value: '{}',
-          theme: 'myTheme',
-          ...options
-        });
+        // this.editor.deltaDecorations([], [
+        //   { 
+        //     range: new monaco.Range(2, 1, 2, 1),
+        //     options: { 
+        //       isWholeLine: true, 
+        //       className: 'myContentClass',
+			  //       linesDecorationsClassName: 'myGlyphMarginClass'
+        //    }
+        //   }
+        // ]);
 
-        this.editor.deltaDecorations([], [
-          { 
-            range: new monaco.Range(2, 1, 2, 1),
-            options: { 
-              isWholeLine: true, 
-              className: 'myContentClass',
-			        linesDecorationsClassName: 'myGlyphMarginClass'
-           }
-          }
-        ]);
-
-        this.editor.revealPositionInCenter({ lineNumber: 2, column: 3 });
+        // this.editor.revealPositionInCenter({ lineNumber: 2, column: 3 });
     }
   }
 
@@ -100,7 +102,8 @@ class App extends Component {
       jsonlint.parse(beautify.js_beautify(value));
       this.setState({
         loading: false,
-        isError: false
+        isError: false,
+        isValid: true
       });
     } catch (err) {
       const array = err.message.match(/line ([0-9]*)/);
@@ -119,7 +122,8 @@ class App extends Component {
       this.setState({
         error: [err],
         isError: true,
-        loading: false
+        loading: false,
+        isValid: false
       });
     }
   }
@@ -132,7 +136,8 @@ class App extends Component {
       jsonlint.parse(beautify.js_beautify(value));
       this.setState({
         loading: false,
-        isError: false
+        isError: false,
+        isValid: true
       });
     } catch (err) {
       const array = err.message.match(/line ([0-9]*)/);
@@ -151,17 +156,24 @@ class App extends Component {
       this.setState({
         error: [err],
         isError: true,
-        loading: false
+        loading: false,
+        isValid: false
       });
     }
   }
 
+  toggleAlert = () => {
+    this.setState({
+      isError: !this.state.isError
+    })
+  }
+
   render() {
-    const { loading, error, isError } = this.state;
+    const { loading, error, isError, isValid } = this.state;
     return (
       <div className="container-fluid">
-        <div class="card">
-          <div class="card-header display-flex">
+        <div className="card">
+          <div className="card-header display-flex">
               <div className="col-md-6">
                 <h5>JSON Editor</h5>
               </div>
@@ -171,7 +183,7 @@ class App extends Component {
                   <input
                     accept=".json"
                     type='file' 
-                    multiple='false'
+                    multiple={false}
                     onChange={(e) => this.handleSelect(e)}
                   />
                   <button className="btn btn-success display-flex">
@@ -183,23 +195,30 @@ class App extends Component {
               </div>
           </div>
           <div className="card-body">
-            <div className={"alert alert-warning alert-dismissible fade show"} role="alert">
+            { isError && 
+              <div className="alert alert-warning alert-dismissible fade show" role="alert">
               {error}
-              <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                <span aria-hidden="true">×</span>
-              </button>
-            </div>
-              { loading &&
-                <div className={loading ? 'loader-main' : 'display-none'}>
-                  <img style={{marginTop: '25%', height: '100px'}} src={loader} alt='' />
-                </div >
-              }
-              <div
-               id="code"
-               data-lang="json"
-               ref={this.assignRef}
-               className='react-monaco-editor-container border'
-               />
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                  <span aria-hidden="true" onClick={this.toggleAlert}>×</span>
+                </button>
+              </div>
+            }
+            { isValid && 
+              <div className='check-img'>
+                <img src={checked} alt='' />
+              </div >
+            }
+            { loading &&
+              <div className={loading ? 'loader-main' : 'display-none'}>
+                <img style={{marginTop: '25%', height: '100px'}} src={loader} alt='' />
+              </div >
+            }
+            <div
+              id="code"
+              data-lang="json"
+              ref={this.assignRef}
+              className='react-monaco-editor-container border'
+              />
           </div>
         </div>
       </div>
