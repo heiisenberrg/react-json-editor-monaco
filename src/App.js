@@ -1,11 +1,10 @@
 import React, { Component } from 'react';
-import * as monaco from 'monaco-editor';
+import * as monaco from 'monaco-editor/esm/vs/editor/editor.main';
 import beautify from 'js-beautify';
 import jsonlint from 'jsonlint';
 import jsonminify from 'jsonminify';
 import upload from './upload-button.svg';
 import loader from './loader.gif';
-import checked from './checked.svg';
 import './App.css';
 
 class App extends Component {
@@ -14,6 +13,7 @@ class App extends Component {
     super(props);
     this.state = {
        error: [],
+       decoration: null,
        loading: false,
        isError: false,
        isValid: false
@@ -28,6 +28,10 @@ class App extends Component {
         const options = {
           minimap: {enabled: false},
           colorDecorators: true,
+          roundedSelection: false,
+          scrollBeyondLastLine: false,
+          folding: true,
+          foldingStrategy: "auto",
           glyphMargin: true,
           wordWrap: 'wordWrapColumn',
           wordWrapColumn: 60,
@@ -52,28 +56,46 @@ class App extends Component {
               'editor.selectionBackground': '#88000030',
               'editor.inactiveSelectionBackground': '#88000015'
           }
-      });
-      monaco.editor.setTheme('myTheme');
-      this.editor = monaco.editor.create(this.containerElement, {
-        language: 'json',
-        value: '{}',
-        // theme: 'myTheme',
-        ...options
-      });
+        });
+        monaco.editor.setTheme('myTheme');
+        monaco.languages.registerDocumentFormattingEditProvider('json', {
+          async provideDocumentFormattingEdits(model, options, token) {
+            const text = beautify.js_beautify(jsonminify(model.getValue()));
+            return [
+              {
+                range: model.getFullModelRange(),
+                text,
+              },
+            ];
+          },
+        });
+        this.editor = monaco.editor.create(this.containerElement, {
+          language: 'json',
+          value: '{}',
+          ...options
+        });
 
-        // this.editor.deltaDecorations([], [
-        //   { 
-        //     range: new monaco.Range(2, 1, 2, 1),
-        //     options: { 
-        //       isWholeLine: true, 
-        //       className: 'myContentClass',
-			  //       linesDecorationsClassName: 'myGlyphMarginClass'
-        //    }
-        //   }
-        // ]);
+        this.editorDidMount(this.editor);
 
-        // this.editor.revealPositionInCenter({ lineNumber: 2, column: 3 });
     }
+  }
+
+  componentDidUpdate() {
+    monaco.editor.defineTheme('myTheme', {
+      base: 'vs',
+      inherit: true,
+      rules: [{ background: '000000' }],
+      colors: {
+          'editor.foreground': '#000000',
+          'editor.background': '#ffffff',
+          'editorCursor.foreground': '#8B0000',
+          'editor.lineHighlightBackground': '#0000FF20',
+          'editorLineNumber.foreground': '#000000',
+          'editor.selectionBackground': '#88000030',
+          'editor.inactiveSelectionBackground': '#88000015'
+      }
+    });
+    monaco.editor.setTheme('myTheme');
   }
 
   assignRef = (component) => {
@@ -89,7 +111,7 @@ class App extends Component {
         const fileReader = new FileReader();
         fileReader.onload = this.loadJsonFromSelectedFile;
         fileReader.readAsText(event.target.files[0]);  
-      }, 500);
+      }, 100);
     });
       
   }
@@ -130,36 +152,85 @@ class App extends Component {
  
   validate = () => {
     const content = this.editor.getValue();
-    try {
-      const value = jsonminify(content);
-      this.editor.setValue(beautify.js_beautify(value));
-      jsonlint.parse(beautify.js_beautify(value));
-      this.setState({
-        loading: false,
-        isError: false,
-        isValid: true
-      });
-    } catch (err) {
-      const array = err.message.match(/line ([0-9]*)/);
-      this.editor.deltaDecorations([], [
-        { 
-          range: new monaco.Range(parseInt(array[1], 10), 1, parseInt(array[1], 10), 1),
-          options: { 
-            isWholeLine: true, 
-            className: 'myContentClass',
-            linesDecorationsClassName: 'myGlyphMarginClass'
-         }
-        }
-      ]);
-      const { index } = array;
-      this.editor.revealPositionInCenter({ lineNumber: parseInt(array[1], 10), column: index });
-      this.setState({
-        error: [err],
-        isError: true,
-        loading: false,
-        isValid: false
-      });
+    if (Boolean(Object.keys(content).length)) {
+      try {
+        const value = jsonminify(content);
+        this.editor.setValue(beautify.js_beautify(value));
+        jsonlint.parse(beautify.js_beautify(value));
+        this.setState({
+          loading: false,
+          isError: false,
+          isValid: true
+        });
+      } catch (err) {
+        const array = err.message.match(/line ([0-9]*)/);
+        const decoration = this.editor.deltaDecorations([], [
+          { 
+            range: new monaco.Range(parseInt(array[1], 10), 1, parseInt(array[1], 10), 1),
+            options: { 
+              isWholeLine: true, 
+              className: 'myContentClass',
+              linesDecorationsClassName: 'myGlyphMarginClass'
+           }
+          }
+        ]);
+        const { index } = array;
+        this.editor.revealPositionInCenter({ lineNumber: parseInt(array[1], 10), column: index });
+        this.setState({
+          error: [err],
+          decoration,
+          isError: true,
+          loading: false,
+          isValid: false
+        });
+      }
     }
+  }
+
+  editorDidMount(editor) {
+    editor.onDidChangeModelContent((event) => {
+      const content = editor.getValue();
+      if (Boolean(Object.keys(content).length)) {
+        try {
+          const value = jsonminify(content);
+          if (this.trigger) {
+            this.trigger = false;
+            this.editor.setValue(beautify.js_beautify(value));
+            this.trigger = true;
+          }
+          jsonlint.parse(beautify.js_beautify(value));
+          const decoration = this.editor.deltaDecorations(this.state.decoration, []);
+          this.setState({
+            loading: false,
+            error: [],
+            decoration,
+            isError: false,
+            isValid: true
+          });
+        } catch (err) {
+          const array = err.message.match(/line ([0-9]*)/);
+          const decoration = this.editor.deltaDecorations([], [
+            { 
+              range: new monaco.Range(parseInt(array[1], 10), 1, parseInt(array[1], 10), 1),
+              options: { 
+                isWholeLine: true, 
+                className: 'myContentClass',
+                linesDecorationsClassName: 'myGlyphMarginClass'
+             }
+            }
+          ]);
+          const { index } = array;
+          this.editor.revealPositionInCenter({ lineNumber: parseInt(array[1], 10), column: index });
+          this.setState({
+            error: [err],
+            decoration,
+            isError: true,
+            loading: false,
+            isValid: false
+          });
+        }
+      }
+    });
   }
 
   toggleAlert = () => {
@@ -175,7 +246,11 @@ class App extends Component {
         <div className="card">
           <div className="card-header display-flex">
               <div className="col-md-6">
-                <h5>JSON Editor</h5>
+                <div className="h5">JSON Editor
+                  { isValid && 
+                    <span class="badge badge-secondary">Valid JSON</span> 
+                  }
+                </div>
               </div>
               <div className="col-md-6 actions display-flex">
                 <button className="btn btn-primary" onClick={this.validate}>Validate</button>
@@ -197,16 +272,11 @@ class App extends Component {
           <div className="card-body">
             { isError && 
               <div className="alert alert-warning alert-dismissible fade show" role="alert">
-              {error}
-                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <p>{error[0].message}</p>
+                <button type="button" className="close" data-dismiss="alert" aria-label="Close">
                   <span aria-hidden="true" onClick={this.toggleAlert}>×</span>
                 </button>
               </div>
-            }
-            { isValid && 
-              <div className='check-img'>
-                <img src={checked} alt='' />
-              </div >
             }
             { loading &&
               <div className={loading ? 'loader-main' : 'display-none'}>

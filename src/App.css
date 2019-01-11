@@ -165,7 +165,7 @@ button {
 	margin-left: auto;
 }
 
-h5 {
+.h5 {
 	margin-top: 0.5rem;
 	margin-bottom: .5rem;
 	font-family: inherit;
@@ -216,15 +216,21 @@ h5 {
 	.display-none {
 		display: none;
 	}
-	.check-img {
-		width: 90%;
-    position: absolute;
-    z-index: 999999;
-    display: flex;
-    justify-content: flex-end;
-	}
 
-	.check-img img {
-		height: 40px;
-		width: 40px;
-	}
+	.badge {
+    display: inline-block;
+    padding: .25em .4em;
+    font-size: 75%;
+    font-weight: 700;
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: baseline;
+    border-radius: .25rem;
+}
+
+.badge-secondary {
+	color: #fff;
+	margin-left:  10px;
+	background-color: #28a745;
+}
